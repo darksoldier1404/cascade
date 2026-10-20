@@ -9,20 +9,17 @@ import java.util.function.Supplier;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 
-// the render types, rebuilt for 26.1 and shared by both loaders: the old RenderStateShard composite builder
-// is gone, so each type is a RenderPipeline (see CorePipelines) paired with a RenderSetup that binds the
-// particle atlas, all public vanilla api. exposed to the shared render code through the provider seam.
+// the render types, shared by both loaders: each type is a RenderPipeline (see CorePipelines) paired with a
+// RenderSetup that binds the particle atlas, all public vanilla api. exposed to the shared render code
+// through the provider seam.
 //
 // this class is loaded lazily, on the first draw that asks for a type, never at loader init or pipeline
-// registration. that matters twice: a RenderSetup resolves its bound texture to a gpu view when it is
-// built and caches it, so the atlas must already be registered by then (the static block below uploads it
-// first); and the atlas upload itself needs the gpu device, which does not exist yet when loader
-// entrypoints install the provider. the nested Provider exists exactly for that: instantiating a nested
-// class does not initialize its enclosing class, so this class loads only when the first provider method
-// runs, on the first draw.
+// registration. a RenderSetup looks its textures up by id when a draw is prepared, so the atlas only has to
+// be registered by the first draw (the static block below uploads it), but the upload needs the gpu device,
+// which does not exist yet when loader entrypoints install the provider. the nested Provider exists exactly
+// for that: instantiating a nested class does not initialize its enclosing class, so this class loads only
+// when the first provider method runs, on the first draw.
 public final class CoreRenderTypes {
-
-    private static final int BUFFER_BYTES = 1536;
 
     // upload the atlas before the textured types below resolve it. runs first because it is declared first
     static {
@@ -47,7 +44,7 @@ public final class CoreRenderTypes {
 
     // an untextured type: just the pipeline and a vertex buffer
     private static RenderType plain(String name, RenderPipeline pipeline, boolean sort) {
-        RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(pipeline).bufferSize(BUFFER_BYTES);
+        RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(pipeline);
         if (sort) {
             setup.sortOnUpload();
         }
@@ -58,7 +55,6 @@ public final class CoreRenderTypes {
     private static RenderType lightmapPlain(String name, RenderPipeline pipeline) {
         return RenderType.create(name, RenderSetup.builder(pipeline)
                 .useLightmap()
-                .bufferSize(BUFFER_BYTES)
                 .createRenderSetup());
     }
 
@@ -66,8 +62,7 @@ public final class CoreRenderTypes {
     private static RenderType textured(String name, RenderPipeline pipeline,
             boolean sort, boolean lightmap) {
         RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(pipeline)
-                .withTexture("Sampler0", ParticleAtlas.textureId(), ATLAS_SAMPLER)
-                .bufferSize(BUFFER_BYTES);
+                .withTexture("Sampler0", ParticleAtlas.textureId(), ATLAS_SAMPLER);
         if (lightmap) {
             setup.useLightmap();
         }
@@ -87,43 +82,18 @@ public final class CoreRenderTypes {
     static final RenderType GUI_TEXTURED_ADDITIVE = textured("cascade_gui_textured_additive", ScreenVfxPipelines.ADDITIVE, false, false);
     static final RenderType GUI_TEXTURED_ALPHA = textured("cascade_gui_textured_alpha", ScreenVfxPipelines.ALPHA, true, false);
 
-    // the soft types bind cascade's scene depth copy, whose texture is recreated on window resize. a
-    // RenderSetup caches the resolved gpu view when built, so these are rebuilt whenever the depth copy's
-    // generation moves instead of living as static finals like the types above. the generation is stamped
-    // into the name in case type names are registered anywhere unique
-    private static RenderType texturedAlphaSoft;
-    private static RenderType texturedAlphaLitSoft;
-    private static int softGeneration = -1;
+    // the soft types also bind cascade's scene depth copy. its texture is recreated on window resize, which
+    // is safe here because the setup only holds the id and the draw resolves the current texture
+    static final RenderType TEXTURED_ALPHA_SOFT = softTextured("cascade_textured_alpha_soft",
+            CorePipelines.TEXTURED_ALPHA_SOFT, false);
+    static final RenderType TEXTURED_ALPHA_LIT_SOFT = softTextured("cascade_textured_alpha_lit_soft",
+            CorePipelines.TEXTURED_ALPHA_LIT_SOFT, true);
 
-    private static RenderType softAlpha() {
-        ensureSoft();
-        return texturedAlphaSoft;
-    }
-
-    private static RenderType softAlphaLit() {
-        ensureSoft();
-        return texturedAlphaLitSoft;
-    }
-
-    private static void ensureSoft() {
-        SoftDepth.ensureReady();
-        int generation = SoftDepth.generation();
-        if (softGeneration != generation) {
-            softGeneration = generation;
-            texturedAlphaSoft = softTextured("cascade_textured_alpha_soft_" + generation,
-                    CorePipelines.TEXTURED_ALPHA_SOFT, false);
-            texturedAlphaLitSoft = softTextured("cascade_textured_alpha_lit_soft_" + generation,
-                    CorePipelines.TEXTURED_ALPHA_LIT_SOFT, true);
-        }
-    }
-
-    private static RenderType softTextured(String name, RenderPipeline pipeline,
-            boolean lightmap) {
+    private static RenderType softTextured(String name, RenderPipeline pipeline, boolean lightmap) {
         RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(pipeline)
                 .withTexture("Sampler0", ParticleAtlas.textureId(), ATLAS_SAMPLER)
                 .withTexture("DepthSampler", SoftDepth.textureId(), ATLAS_SAMPLER)
-                .sortOnUpload()
-                .bufferSize(BUFFER_BYTES);
+                .sortOnUpload();
         if (lightmap) {
             setup.useLightmap();
         }
@@ -151,7 +121,8 @@ public final class CoreRenderTypes {
 
         @Override
         public RenderType texturedAlphaSoft() {
-            return softAlpha();
+            SoftDepth.ensureReady();
+            return TEXTURED_ALPHA_SOFT;
         }
 
         @Override
@@ -176,7 +147,8 @@ public final class CoreRenderTypes {
 
         @Override
         public RenderType texturedAlphaLitSoft() {
-            return softAlphaLit();
+            SoftDepth.ensureReady();
+            return TEXTURED_ALPHA_LIT_SOFT;
         }
 
         @Override

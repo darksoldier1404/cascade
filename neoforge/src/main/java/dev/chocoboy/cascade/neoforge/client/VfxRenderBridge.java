@@ -5,7 +5,6 @@ import dev.chocoboy.cascade.client.ScreenVfxManager;
 import dev.chocoboy.cascade.client.VfxRenderManager;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
@@ -29,11 +28,10 @@ public final class VfxRenderBridge {
 
     @SubscribeEvent
     public void onAfterTranslucent(RenderLevelStageEvent.AfterTranslucentBlocks event) {
-        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
-        MultiBufferSource.BufferSource buffers = Minecraft.getInstance().renderBuffers().bufferSource();
-        VfxRenderManager.get().render(event.getPoseStack(), buffers, camera.rotation(), camera.position());
+        Camera camera = Minecraft.getInstance().gameRenderer.mainCamera();
+        VfxRenderManager.get().render(event.getPoseStack(), camera.rotation(), camera.position());
         // the bloom capture re-renders here, in the same stage, so the frame's matrices still match
-        PostFx.captureVfx(event.getPoseStack(), buffers, camera.rotation(), camera.position());
+        PostFx.captureVfx(event.getPoseStack(), camera.rotation(), camera.position());
     }
 
     @SubscribeEvent

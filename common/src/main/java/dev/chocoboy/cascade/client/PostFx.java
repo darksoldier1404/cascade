@@ -1,5 +1,6 @@
 package dev.chocoboy.cascade.client;
 
+import com.mojang.blaze3d.GpuFormat;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
@@ -8,11 +9,11 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.logging.LogUtils;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.PostChain;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
+import org.joml.Vector4f;
 import org.slf4j.Logger;
 
 // Selective bloom: cascade's effects are re-rendered into an offscreen capture (with the scene's depth,
@@ -48,21 +49,20 @@ public final class PostFx {
 
     // called by the loader right after the normal effect draw, while the frame's matrices still match it.
     // renders the same effects again into the capture target that the blur chain reads later in the frame
-    public static void captureVfx(PoseStack pose, MultiBufferSource.BufferSource buffers,
-            Quaternionf camRot, Vec3 camPos) {
+    public static void captureVfx(PoseStack pose, Quaternionf camRot, Vec3 camPos) {
         if (!enabled || failed) {
             return;
         }
-        RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
+        RenderTarget main = Minecraft.getInstance().gameRenderer.mainRenderTarget();
         ensureCapture(main);
         // transparent black, so pixels no effect touches add nothing in the composite
-        RenderSystem.getDevice().createCommandEncoder().clearColorTexture(capture.getColorTexture(), 0);
+        RenderSystem.getDevice().createCommandEncoder().clearColorTexture(capture.getColorTexture(), new Vector4f());
         // scene depth so the capture pass depth-tests against the world
         capture.copyDepthFrom(main);
         RenderSystem.outputColorTextureOverride = capture.getColorTextureView();
         RenderSystem.outputDepthTextureOverride = capture.getDepthTextureView();
         try {
-            captured = VfxRenderManager.get().render(pose, buffers, camRot, camPos, false);
+            captured = VfxRenderManager.get().render(pose, camRot, camPos, false);
         } finally {
             RenderSystem.outputColorTextureOverride = null;
             RenderSystem.outputDepthTextureOverride = null;
@@ -88,7 +88,7 @@ public final class PostFx {
             }
             // the chain runs over the capture, not the frame: its "minecraft:main" is our capture target
             chain.process(capture, GraphicsResourceAllocator.UNPOOLED);
-            BloomBlit.addTo(capture, mc.getMainRenderTarget());
+            BloomBlit.addTo(capture, mc.gameRenderer.mainRenderTarget());
         } catch (RuntimeException e) {
             failed = true;
             LOGGER.error("Cascade bloom failed, post fx disabled", e);
@@ -97,7 +97,8 @@ public final class PostFx {
 
     private static void ensureCapture(RenderTarget main) {
         if (capture == null) {
-            capture = new TextureTarget("cascade-bloom-capture", main.width, main.height, true);
+            capture = new TextureTarget("cascade-bloom-capture", main.width, main.height, true,
+                    GpuFormat.RGBA8_UNORM);
         } else if (capture.width != main.width || capture.height != main.height) {
             capture.resize(main.width, main.height);
         }

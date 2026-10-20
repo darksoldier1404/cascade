@@ -38,12 +38,10 @@ public final class CascadeFabricClient implements ClientModInitializer {
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("cascade", "screen_vfx"),
                 (gui, tickCounter) -> ScreenVfxManager.get().render(gui));
         LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN.register(context -> {
-            Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
-            VfxRenderManager.get().render(context.poseStack(),
-                    Minecraft.getInstance().renderBuffers().bufferSource(), camera.rotation(), camera.position());
+            Camera camera = Minecraft.getInstance().gameRenderer.mainCamera();
+            VfxRenderManager.get().render(context.poseStack(), camera.rotation(), camera.position());
             // the bloom capture re-renders here, in the same stage, so the frame's matrices still match
-            PostFx.captureVfx(context.poseStack(),
-                    Minecraft.getInstance().renderBuffers().bufferSource(), camera.rotation(), camera.position());
+            PostFx.captureVfx(context.poseStack(), camera.rotation(), camera.position());
         });
         // run post fx after the whole level, so it captures particles too
         LevelRenderEvents.END_MAIN.register(context ->

@@ -6,7 +6,7 @@ import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.resources.Identifier;
 
 // the hud particle pipelines: the textured world pair with no depth test, so the gui pass draws them over
@@ -26,8 +26,8 @@ public final class ScreenVfxPipelines {
         return CorePipelines.worldBuilder(name)
                 .withVertexShader(Identifier.withDefaultNamespace("core/position_tex_color"))
                 .withFragmentShader(Identifier.fromNamespaceAndPath("cascade", "core/position_tex_cutout"))
-                .withSampler("Sampler0")
-                .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.Mode.QUADS)
+                .withBindGroupLayout(BindGroupLayouts.SAMPLER0)
+                .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_COLOR)
                 .withColorTargetState(new ColorTargetState(blend))
                 .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
                 .withCull(false)

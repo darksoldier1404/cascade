@@ -6,12 +6,10 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.rendertype.RenderType;
 
-// collects a frame's draw work grouped by render type, then plays it back one type at a time. the shared
-// buffer source flushes every time the requested render type changes, so effects with mixed types
-// interleaved would cost a draw per switch; grouping makes it one flush per type per frame
+// collects a frame's draw work grouped by render type, then plays it back one type at a time. effects with
+// mixed types interleaved would cost a draw per switch; grouping makes it one draw per type per frame
 public final class VfxRenderQueue {
 
     // playback tiers: opaque geometry first, alpha blends over it, additive glow on top. within a tier,
@@ -24,12 +22,6 @@ public final class VfxRenderQueue {
         void write(VertexConsumer vc);
     }
 
-    // for draws that pick their render types internally (item models); these skip type grouping and run
-    // with the opaque tier
-    public interface DirectWriter {
-        void write(MultiBufferSource buffers);
-    }
-
     // reports a writer that threw during playback, so the owning effect can be removed without the
     // whole pass going down
     interface FailureSink {
@@ -39,14 +31,10 @@ public final class VfxRenderQueue {
     record Submission(Object owner, Writer writer) {
     }
 
-    private record DirectSubmission(Object owner, DirectWriter writer) {
-    }
-
     private record SelfSubmission(Object owner, Runnable draw) {
     }
 
     private final Map<RenderType, List<Submission>> groups = new LinkedHashMap<>();
-    private final List<DirectSubmission> direct = new ArrayList<>();
     private final List<SelfSubmission> self = new ArrayList<>();
     private Object owner;
 
@@ -59,33 +47,17 @@ public final class VfxRenderQueue {
         groups.computeIfAbsent(type, t -> new ArrayList<>()).add(new Submission(owner, writer));
     }
 
-    public void submitDirect(DirectWriter writer) {
-        direct.add(new DirectSubmission(owner, writer));
-    }
-
     // for effects that own their whole draw call (gpu-resident geometry). they play after the typed
     // tiers, so their glow composites over everything the frame batched
     public void submitSelf(Runnable draw) {
         self.add(new SelfSubmission(owner, draw));
     }
 
-    void play(MultiBufferSource.BufferSource buffers, FailureSink failures) {
-        for (DirectSubmission s : direct) {
-            try {
-                s.writer().write(buffers);
-            } catch (RuntimeException e) {
-                failures.failed(s.owner(), e);
-            }
-        }
-        // flush the direct draws now: the typed groups below bypass the buffer source entirely, so
-        // anything left in it would otherwise draw after the glow tiers instead of with the opaque one
-        buffers.endBatch();
+    void play(FailureSink failures) {
         // the sort is stable, so types in the same tier keep first-submission order
         List<RenderType> order = new ArrayList<>(groups.keySet());
         order.sort(Comparator.comparingInt(VfxRenderQueue::tier));
-        for (RenderType type : order) {
-            CascadeBatcher.draw(type, groups.get(type), failures);
-        }
+        CascadeBatcher.draw(order, groups, failures);
         for (SelfSubmission s : self) {
             try {
                 s.draw().run();

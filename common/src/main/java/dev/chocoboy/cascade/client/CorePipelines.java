@@ -1,14 +1,15 @@
 package dev.chocoboy.cascade.client;
 
+import com.mojang.blaze3d.PrimitiveTopology;
+import com.mojang.blaze3d.pipeline.BindGroupLayout;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import java.util.List;
+import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.resources.Identifier;
 
 // the render pipelines for the cascade render types, kept apart from CoreRenderTypes on purpose. the gpu
@@ -24,8 +25,8 @@ import net.minecraft.resources.Identifier;
 // lit ones)
 public final class CorePipelines {
 
-    static final DepthStencilState DEPTH_NO_WRITE = new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false);
-    static final DepthStencilState DEPTH_WRITE = new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, true);
+    static final DepthStencilState DEPTH_NO_WRITE = new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false);
+    static final DepthStencilState DEPTH_WRITE = new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, true);
 
     private static final Identifier POSITION_COLOR = Identifier.withDefaultNamespace("core/position_color");
     private static final Identifier POSITION_TEX_COLOR = Identifier.withDefaultNamespace("core/position_tex_color");
@@ -43,6 +44,9 @@ public final class CorePipelines {
     private static final Identifier POSITION_TEX_SOFT =
             Identifier.fromNamespaceAndPath("cascade", "core/position_tex_soft");
 
+    // the scene depth copy the soft fragment stage reads
+    private static final BindGroupLayout DEPTH_SAMPLER = BindGroupLayout.builder().withSampler("DepthSampler").build();
+
     private CorePipelines() {
     }
 
@@ -50,8 +54,8 @@ public final class CorePipelines {
     static RenderPipeline.Builder worldBuilder(String name) {
         return RenderPipeline.builder()
                 .withLocation(Identifier.fromNamespaceAndPath("cascade", name))
-                .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-                .withUniform("Projection", UniformType.UNIFORM_BUFFER);
+                .withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION)
+                .withPrimitiveTopology(PrimitiveTopology.QUADS);
     }
 
     // untextured vertex-colored quads, the vanilla position_color stages
@@ -59,7 +63,7 @@ public final class CorePipelines {
         return worldBuilder(name)
                 .withVertexShader(POSITION_COLOR)
                 .withFragmentShader(POSITION_COLOR)
-                .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS)
+                .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
                 .withColorTargetState(color)
                 .withDepthStencilState(depth)
                 .withCull(false)
@@ -70,8 +74,8 @@ public final class CorePipelines {
         return worldBuilder(name)
                 .withVertexShader(POSITION_TEX_COLOR)
                 .withFragmentShader(POSITION_TEX_CUTOUT)
-                .withSampler("Sampler0")
-                .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.Mode.QUADS)
+                .withBindGroupLayout(BindGroupLayouts.SAMPLER0)
+                .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_COLOR)
                 .withColorTargetState(color)
                 .withDepthStencilState(depth)
                 .withCull(false)
@@ -82,11 +86,10 @@ public final class CorePipelines {
     // color; the fog block is part of that shader's interface even though cascade leaves fog defaults alone
     private static RenderPipeline.Builder litBuilder(String name) {
         return worldBuilder(name)
-                .withUniform("Fog", UniformType.UNIFORM_BUFFER)
+                .withBindGroupLayout(BindGroupLayouts.FOG)
                 .withVertexShader(PARTICLE)
-                .withSampler("Sampler0")
-                .withSampler("Sampler2")
-                .withVertexFormat(DefaultVertexFormat.PARTICLE, VertexFormat.Mode.QUADS)
+                .withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER2)
+                .withVertexBinding(0, DefaultVertexFormat.PARTICLE)
                 .withDepthStencilState(DEPTH_NO_WRITE)
                 .withCull(false);
     }
@@ -110,8 +113,8 @@ public final class CorePipelines {
     static final RenderPipeline SOLID_LIT = worldBuilder("solid_lit")
             .withVertexShader(Identifier.fromNamespaceAndPath("cascade", "core/position_color_lightmap"))
             .withFragmentShader(Identifier.fromNamespaceAndPath("cascade", "core/position_color_lightmap"))
-            .withSampler("Sampler2")
-            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_LIGHTMAP, VertexFormat.Mode.QUADS)
+            .withBindGroupLayout(BindGroupLayouts.SAMPLER2)
+            .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR_LIGHTMAP)
             .withColorTargetState(ColorTargetState.DEFAULT)
             .withDepthStencilState(DEPTH_WRITE)
             .withCull(false)
@@ -132,9 +135,9 @@ public final class CorePipelines {
     static final RenderPipeline TEXTURED_ALPHA_SOFT = worldBuilder("textured_alpha_soft")
             .withVertexShader(POSITION_TEX_COLOR)
             .withFragmentShader(POSITION_TEX_SOFT)
-            .withSampler("Sampler0")
-            .withSampler("DepthSampler")
-            .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.Mode.QUADS)
+            .withBindGroupLayout(BindGroupLayouts.SAMPLER0)
+            .withBindGroupLayout(DEPTH_SAMPLER)
+            .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_COLOR)
             .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
             .withDepthStencilState(DEPTH_NO_WRITE)
             .withCull(false)
@@ -142,7 +145,7 @@ public final class CorePipelines {
 
     static final RenderPipeline TEXTURED_ALPHA_LIT_SOFT = litBuilder("textured_alpha_lit_soft")
             .withFragmentShader(POSITION_TEX_SOFT)
-            .withSampler("DepthSampler")
+            .withBindGroupLayout(DEPTH_SAMPLER)
             .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
             .build();
 

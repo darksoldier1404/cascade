@@ -8,17 +8,17 @@ import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.model.Model;
-import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.OrderedSubmitNodeCollector;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.block.MovingBlockRenderState;
-import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
+import net.minecraft.client.renderer.gizmos.DrawableGizmoPrimitives;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.state.level.QuadParticleRenderState;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -28,6 +28,7 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 
@@ -89,12 +90,12 @@ final class ItemMeshCache {
         }
 
         @Override
-        public void submitShadow(PoseStack pose, float strength, List<EntityRenderState.ShadowPiece> pieces) {
+        public void submitShadow(PoseStack pose, float radius, List<EntityRenderState.ShadowPiece> pieces) {
         }
 
         @Override
-        public void submitNameTag(PoseStack pose, Vec3 offset, int light, Component name, boolean discrete,
-                int y, double distance, CameraRenderState camera) {
+        public void submitNameTag(PoseStack pose, Vec3 attachment, int offset, Component name,
+                boolean seeThrough, int light, CameraRenderState camera) {
         }
 
         @Override
@@ -117,13 +118,7 @@ final class ItemMeshCache {
         }
 
         @Override
-        public void submitModelPart(ModelPart part, PoseStack pose, RenderType type, int light, int overlay,
-                TextureAtlasSprite sprite, boolean fullBright, boolean noRender, int color,
-                ModelFeatureRenderer.CrumblingOverlay crumbling, int outlineColor) {
-        }
-
-        @Override
-        public void submitMovingBlock(PoseStack pose, MovingBlockRenderState state) {
+        public void submitMovingBlock(PoseStack pose, MovingBlockRenderState state, int outlineColor) {
         }
 
         @Override
@@ -132,7 +127,12 @@ final class ItemMeshCache {
         }
 
         @Override
-        public void submitBreakingBlockModel(PoseStack pose, BlockStateModel model, long seed, int progress) {
+        public void submitBreakingBlockModel(PoseStack pose, List<BlockStateModelPart> parts, int progress) {
+        }
+
+        @Override
+        public void submitShapeOutline(PoseStack pose, VoxelShape shape, RenderType type, int color,
+                float width, boolean afterTerrain) {
         }
 
         @Override
@@ -141,7 +141,12 @@ final class ItemMeshCache {
         }
 
         @Override
-        public void submitParticleGroup(SubmitNodeCollector.ParticleGroupRenderer renderer) {
+        public void submitQuadParticleGroup(QuadParticleRenderState particles) {
+        }
+
+        @Override
+        public void submitGizmoPrimitives(DrawableGizmoPrimitives.Group group, CameraRenderState camera,
+                boolean onTop) {
         }
     }
 }

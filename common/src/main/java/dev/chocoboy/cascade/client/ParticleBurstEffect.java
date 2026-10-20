@@ -2,6 +2,7 @@ package dev.chocoboy.cascade.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.QuadInstance;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.chocoboy.cascade.engine.effect.BlendMode;
 import dev.chocoboy.cascade.engine.effect.CollisionProbe;
 import dev.chocoboy.cascade.engine.effect.EmitterSpec;
@@ -11,15 +12,17 @@ import dev.chocoboy.cascade.engine.effect.ParticleSystem;
 import dev.chocoboy.cascade.engine.effect.RenderSpec;
 import dev.chocoboy.cascade.engine.effect.SubEmitterSpec;
 import dev.chocoboy.cascade.engine.math.Vec3f;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
@@ -213,42 +216,57 @@ public final class ParticleBurstEffect implements RenderedEffect {
         Level level = Minecraft.getInstance().level;
         Vec3 cam = frame.cameraPos();
         PoseStack pose = frame.pose();
-        // each quad names its own item render type, so this path cannot group by type
-        frame.queue().submitDirect(buffers -> {
-            Quaternionf rot = new Quaternionf();
-            QuadInstance quad = new QuadInstance();
-            quad.setOverlayCoords(OverlayTexture.NO_OVERLAY);
-            for (Particle p : sim.particles()) {
-                float size = sim.sizeOf(p);
-                // the captured ground transform already centers and shrinks the model, so no centering shift
-                // here, and a larger scale compensates the shrink
-                float s = size * 3f;
-                float wx = (float) (origin.x + p.pos.x() - cam.x);
-                float wy = (float) (origin.y + p.pos.y() - cam.y);
-                float wz = (float) (origin.z + p.pos.z() - cam.z);
-                quad.setLightCoords(level != null ? lightAt(level, p) : 0xF000F0);
-                pose.pushPose();
-                try {
-                    pose.translate(wx, wy, wz);
-                    pose.mulPose(rot.rotationYXZ(p.yaw, p.pitch, p.rotation));
-                    pose.scale(s, s, s);
-                    for (ItemMeshCache.Layer layer : layers) {
-                        pose.pushPose();
-                        pose.mulPose(layer.pose());
-                        PoseStack.Pose last = pose.last();
-                        List<BakedQuad> quads = layer.quads();
-                        for (int i = 0; i < quads.size(); i++) {
-                            BakedQuad baked = quads.get(i);
-                            quad.setColor(layerColor(layer.tints(), baked.materialInfo()));
-                            buffers.getBuffer(baked.materialInfo().itemRenderType()).putBakedQuad(last, baked, quad);
+        // each quad names its own item render type, so the layers are walked once per distinct type and
+        // the queue groups the writes by it
+        Set<RenderType> types = new LinkedHashSet<>();
+        for (ItemMeshCache.Layer layer : layers) {
+            for (BakedQuad baked : layer.quads()) {
+                types.add(baked.materialInfo().itemRenderType());
+            }
+        }
+        for (RenderType type : types) {
+            frame.queue().submit(type, vc -> writeItemLayers(vc, type, layers, level, cam, pose));
+        }
+    }
+
+    private void writeItemLayers(VertexConsumer vc, RenderType type, List<ItemMeshCache.Layer> layers,
+            Level level, Vec3 cam, PoseStack pose) {
+        Quaternionf rot = new Quaternionf();
+        QuadInstance quad = new QuadInstance();
+        quad.setOverlayCoords(OverlayTexture.NO_OVERLAY);
+        for (Particle p : sim.particles()) {
+            float size = sim.sizeOf(p);
+            // the captured ground transform already centers and shrinks the model, so no centering shift
+            // here, and a larger scale compensates the shrink
+            float s = size * 3f;
+            float wx = (float) (origin.x + p.pos.x() - cam.x);
+            float wy = (float) (origin.y + p.pos.y() - cam.y);
+            float wz = (float) (origin.z + p.pos.z() - cam.z);
+            quad.setLightCoords(level != null ? lightAt(level, p) : 0xF000F0);
+            pose.pushPose();
+            try {
+                pose.translate(wx, wy, wz);
+                pose.mulPose(rot.rotationYXZ(p.yaw, p.pitch, p.rotation));
+                pose.scale(s, s, s);
+                for (ItemMeshCache.Layer layer : layers) {
+                    pose.pushPose();
+                    pose.mulPose(layer.pose());
+                    PoseStack.Pose last = pose.last();
+                    List<BakedQuad> quads = layer.quads();
+                    for (int i = 0; i < quads.size(); i++) {
+                        BakedQuad baked = quads.get(i);
+                        if (baked.materialInfo().itemRenderType() != type) {
+                            continue;
                         }
-                        pose.popPose();
+                        quad.setColor(layerColor(layer.tints(), baked.materialInfo()));
+                        vc.putBakedQuad(last, baked, quad);
                     }
-                } finally {
                     pose.popPose();
                 }
+            } finally {
+                pose.popPose();
             }
-        });
+        }
     }
 
     // vanilla's tint resolution: untinted quads and out-of-range tint indices draw white
@@ -322,7 +340,7 @@ public final class ParticleBurstEffect implements RenderedEffect {
 
     // scene light at the particle's world cell
     private int lightAt(Level level, Particle p) {
-        return LevelRenderer.getLightCoords(level, BlockPos.containing(
+        return LightCoordsUtil.getLightCoords(level, BlockPos.containing(
                 origin.x + p.pos.x(), origin.y + p.pos.y(), origin.z + p.pos.z()));
     }
 

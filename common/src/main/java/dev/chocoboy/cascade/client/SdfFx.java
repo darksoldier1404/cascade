@@ -1,6 +1,8 @@
 package dev.chocoboy.cascade.client;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.PrimitiveTopology;
+import com.mojang.blaze3d.pipeline.BindGroupLayout;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.DepthStencilState;
@@ -12,12 +14,11 @@ import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import java.nio.ByteBuffer;
 import java.util.OptionalDouble;
-import java.util.OptionalInt;
+import java.util.Optional;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,15 +35,18 @@ public final class SdfFx {
     // mat4 + five vec4-sized fields + four vec4[8] arrays, in std140 layout
     static final int CONFIG_BYTES = 64 + 5 * 16 + 4 * 8 * 16;
 
+    private static final BindGroupLayout CONFIG_LAYOUT =
+            BindGroupLayout.builder().withUniform("SdfConfig", UniformType.UNIFORM_BUFFER).build();
+
     public static final RenderPipeline PIPELINE = RenderPipeline.builder()
             .withLocation(Identifier.fromNamespaceAndPath("cascade", "sdf_volume"))
             .withVertexShader(Identifier.fromNamespaceAndPath("cascade", "core/sdf_volume"))
             .withFragmentShader(Identifier.fromNamespaceAndPath("cascade", "core/sdf_volume"))
-            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withUniform("SdfConfig", UniformType.UNIFORM_BUFFER)
-            .withVertexFormat(DefaultVertexFormat.EMPTY, VertexFormat.Mode.TRIANGLES)
+            .withBindGroupLayout(BindGroupLayouts.PROJECTION)
+            .withBindGroupLayout(CONFIG_LAYOUT)
+            .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .withColorTargetState(new ColorTargetState(BlendFunction.ADDITIVE))
-            .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false))
+            .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
             .withCull(false)
             .build();
 
@@ -63,17 +67,17 @@ public final class SdfFx {
         }
         encoder.writeToBuffer(config.slice(), packed);
         // honour the bloom capture's overrides like RenderType draws do, so volumes bloom too
-        RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
+        RenderTarget main = Minecraft.getInstance().gameRenderer.mainRenderTarget();
         GpuTextureView color = RenderSystem.outputColorTextureOverride != null
                 ? RenderSystem.outputColorTextureOverride : main.getColorTextureView();
         GpuTextureView depth = RenderSystem.outputDepthTextureOverride != null
                 ? RenderSystem.outputDepthTextureOverride : main.getDepthTextureView();
         try (RenderPass pass = encoder.createRenderPass(
-                () -> "cascade sdf volume", color, OptionalInt.empty(), depth, OptionalDouble.empty())) {
+                () -> "cascade sdf volume", color, Optional.empty(), depth, OptionalDouble.empty())) {
             pass.setPipeline(PIPELINE);
             RenderSystem.bindDefaultUniforms(pass);
             pass.setUniform("SdfConfig", config);
-            pass.draw(0, 6);
+            pass.draw(6, 1, 0, 0);
         }
     }
 

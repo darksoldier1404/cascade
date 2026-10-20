@@ -1,32 +1,64 @@
 package dev.chocoboy.cascade.client;
 
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.ByteBufferBuilder;
-import com.mojang.blaze3d.vertex.MeshData;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexSorting;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.client.renderer.StagedVertexBuffer;
+import net.minecraft.client.renderer.rendertype.PreparedRenderType;
 import net.minecraft.client.renderer.rendertype.RenderType;
 
-// owns a reusable native arena per render type, so a frame's grouped work becomes one build and one draw
-// per type without touching the shared buffer source. the arena recycles itself once its mesh is drawn, so
-// steady state never reallocates. 26.1 folds the upload and draw into RenderType.draw, so there is no
-// longer a persistent gpu vertex buffer to bind and manage here
+// owns the staging buffer a frame's grouped work is built into, so every render type becomes one append and
+// one draw without touching vanilla's shared feature buffers. 26.2 removed the immediate draw: types are
+// prepared and their vertices staged first, one upload moves the whole frame to the gpu, then each type
+// draws from its slice. the buffer recycles its gpu allocations through a fence, so steady state never
+// reallocates
 final class CascadeBatcher {
 
-    // fits a few thousand textured quads up front; the arena grows on its own if a frame needs more
+    // fits a few thousand textured quads up front; the staging arena grows on its own if a frame needs more
     private static final int INITIAL_BYTES = 786432;
 
-    private static final Map<RenderType, ByteBufferBuilder> ARENAS = new HashMap<>();
+    private static StagedVertexBuffer staging;
 
     private CascadeBatcher() {
     }
 
-    static void draw(RenderType type, List<VfxRenderQueue.Submission> submissions,
+    private record Staged(PreparedRenderType type, StagedVertexBuffer.Draw draw) {
+    }
+
+    static void draw(List<RenderType> order, Map<RenderType, List<VfxRenderQueue.Submission>> groups,
             VfxRenderQueue.FailureSink failures) {
-        ByteBufferBuilder arena = ARENAS.computeIfAbsent(type, t -> new ByteBufferBuilder(INITIAL_BYTES));
-        BufferBuilder builder = new BufferBuilder(arena, type.mode(), type.format());
+        if (order.isEmpty()) {
+            return;
+        }
+        if (staging == null) {
+            staging = new StagedVertexBuffer(() -> "Cascade", INITIAL_BYTES);
+        }
+        List<Staged> staged = new ArrayList<>(order.size());
+        try {
+            for (RenderType type : order) {
+                stage(type, groups.get(type), failures, staged);
+            }
+            staging.upload();
+            for (Staged s : staged) {
+                StagedVertexBuffer.ExecuteInfo info = staging.getExecuteInfo(s.draw());
+                if (info != null) {
+                    s.type().drawFromBuffer(info);
+                }
+            }
+        } finally {
+            staging.endFrame();
+        }
+    }
+
+    private static void stage(RenderType type, List<VfxRenderQueue.Submission> submissions,
+            VfxRenderQueue.FailureSink failures, List<Staged> out) {
+        // the geometry is authored camera relative, so distance to origin is distance to the camera
+        VertexSorting sorting = type.sortOnUpload() ? RenderSystem.getProjectionType().vertexSorting() : null;
+        StagedVertexBuffer.Draw draw = staging.appendDraw(type.format(), type.primitiveTopology(), sorting);
+        VertexConsumer builder = staging.getVertexBuilder(draw);
         for (VfxRenderQueue.Submission s : submissions) {
             try {
                 s.writer().write(builder);
@@ -34,16 +66,6 @@ final class CascadeBatcher {
                 failures.failed(s.owner(), e);
             }
         }
-        MeshData mesh = builder.build();
-        if (mesh == null) {
-            return;
-        }
-        // the geometry is authored camera relative, so distance to origin is distance to the camera
-        if (type.sortOnUpload()) {
-            mesh.sortQuads(arena, VertexSorting.DISTANCE_TO_ORIGIN);
-        }
-        // draw uploads the mesh, binds the type's pipeline and state, draws, then closes the mesh, which
-        // frees its slice of the arena for the next frame
-        type.draw(mesh);
+        out.add(new Staged(type.prepare(), draw));
     }
 }

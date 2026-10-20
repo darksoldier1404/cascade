@@ -1,5 +1,6 @@
 package dev.chocoboy.cascade.client;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
@@ -7,9 +8,8 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormat;
-import java.util.OptionalInt;
+import java.util.Optional;
+import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.resources.Identifier;
 
 // the bloom composite: adds the blurred capture over the frame. vanilla's blitAndBlendToTexture does this
@@ -26,8 +26,8 @@ public final class BloomBlit {
             .withLocation(Identifier.fromNamespaceAndPath("cascade", "bloom_blit"))
             .withVertexShader(Identifier.withDefaultNamespace("core/screenquad"))
             .withFragmentShader(Identifier.withDefaultNamespace("core/blit_screen"))
-            .withSampler("InSampler")
-            .withVertexFormat(DefaultVertexFormat.EMPTY, VertexFormat.Mode.TRIANGLES)
+            .withBindGroupLayout(BindGroupLayouts.IN_SAMPLER)
+            .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .withColorTargetState(new ColorTargetState(BlendFunction.ADDITIVE))
             .build();
 
@@ -36,12 +36,12 @@ public final class BloomBlit {
 
     static void addTo(RenderTarget source, RenderTarget target) {
         try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(
-                () -> "cascade bloom composite", target.getColorTextureView(), OptionalInt.empty())) {
+                () -> "cascade bloom composite", target.getColorTextureView(), Optional.empty())) {
             pass.setPipeline(PIPELINE);
             RenderSystem.bindDefaultUniforms(pass);
             pass.bindTexture("InSampler", source.getColorTextureView(),
                     RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
-            pass.draw(0, 3);
+            pass.draw(3, 1, 0, 0);
         }
     }
 }

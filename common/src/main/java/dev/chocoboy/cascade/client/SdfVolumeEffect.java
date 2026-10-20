@@ -71,7 +71,7 @@ public final class SdfVolumeEffect implements RenderedEffect {
         }
         // bake the frame's pose into the modelview like the cpu vertex path does, and copy it now: the
         // queue plays this back after submission, when the stack may have moved on
-        Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(frame.pose().last().pose());
+        Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).mul(frame.pose().last().pose());
         Vec3 cam = frame.cameraPos();
         Quaternionf camRot = frame.cameraRotation();
         frame.queue().submitSelf(() -> draw(modelView, cam, camRot));

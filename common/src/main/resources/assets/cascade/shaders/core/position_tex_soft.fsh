@@ -18,9 +18,12 @@ out vec4 fragColor;
 
 const float FADE_DISTANCE = 1.5;
 
-// turn a non linear depth buffer value into a positive view space distance using the projection matrix
+// turn a non linear depth buffer value into a positive view space distance using the projection matrix.
+// the depth range depends on the backend's clip control: a zero to one range stores ndc z as is, the classic
+// minus one to one range remaps it. the two matrices are told apart by ProjMat[2][2], which stays below one
+// in magnitude for zero to one and above one for the classic range, at any sane near and far
 float linearize(float depth) {
-    float ndc = depth * 2.0 - 1.0;
+    float ndc = abs(ProjMat[2][2]) > 1.0 ? depth * 2.0 - 1.0 : depth;
     return ProjMat[3][2] / (ProjMat[2][2] + ndc);
 }
 

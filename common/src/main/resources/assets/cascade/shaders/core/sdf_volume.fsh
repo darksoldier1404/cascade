@@ -138,5 +138,8 @@ void main() {
     fragColor = vec4(colorAt(rim) * Params.z * (0.25 + 0.75 * rim), 1.0);
 
     vec4 clip = ProjMat * VolumeModelView * vec4(rd * t, 1.0);
-    gl_FragDepth = clip.z / clip.w * 0.5 + 0.5;
+    // window depth follows the backend's clip control: ndc z as is for zero to one, remapped for the classic
+    // range, told apart by ProjMat[2][2] like the soft particle stage
+    float ndcZ = clip.z / clip.w;
+    gl_FragDepth = abs(ProjMat[2][2]) > 1.0 ? ndcZ * 0.5 + 0.5 : ndcZ;
 }
