@@ -2,7 +2,7 @@
 
 <img src="logo.png" alt="Cascade" width="200" align="right">
 
-A code-first visual effects and sequencing library for Minecraft 26.1, on both NeoForge and Fabric. It gives
+A code-first visual effects and sequencing library for Minecraft 26.2, on both NeoForge and Fabric. It gives
 other mods a fluent API for particle effects, beams, and choreographed timelines.
 
 Cascade is a developer library. On its own it adds nothing to the game.
@@ -38,12 +38,12 @@ See [docs/getting-started.md](docs/getting-started.md) for the walkthrough.
 
 ## Requirements
 
-Minecraft 26.1, Java 25, and either NeoForge or Fabric with Fabric API. The 1.21.1 build lives on the
-`1.21.1` branch as the `1.0.0+1.21.1` artifact.
+Minecraft 26.2, Java 25, and either NeoForge or Fabric with Fabric API. The 26.1 and 1.21.1 builds live on
+their own branches as the `1.0.0+26.1` and `1.0.0+1.21.1` artifacts.
 
 ## Status
 
-1.0.0+26.1, the Minecraft 26.1 port of the 1.0.0 release. Each Minecraft version lives on its own
+1.0.0+26.2, the Minecraft 26.2 port of the 1.0.0 release. Each Minecraft version lives on its own
 branch, named for it. The public API is unchanged and committed across 1.x. See
 [CHANGELOG.md](CHANGELOG.md).
 

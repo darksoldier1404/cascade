@@ -3,6 +3,27 @@
 Notable changes to Cascade, newest first. Versions follow [semver](https://semver.org): the public API is
 stable across 1.x, and a breaking change would come with a 2.0.
 
+## 1.0.0+26.2 - 2026-10-20
+
+The Minecraft 26.2 port of the 1.0.0 release. The public API is unchanged.
+
+### Changed
+
+- Draws no longer go through a shared buffer source, which 26.2 removed: Cascade stages each frame's vertices
+  per render type in its own buffer, uploads once, and draws every type from it. Item debris now groups by the
+  render type of each quad like every other effect.
+- Pipelines declare their uniforms and samplers through bind group layouts, and draw with the new primitive
+  topology and vertex bindings. The GPU burst vertex format is declared on the new format builder.
+- Depth follows 26.2's reversed range: depth-tested pipelines compare greater-or-equal, and the soft particle
+  and signed-distance volume shaders read and write depth for both clip-control ranges.
+- Render types no longer need rebuilding when the window resizes, since textures are looked up when a draw is
+  prepared.
+
+### Requirements
+
+- Minecraft 26.2, Java 25, NeoForge or Fabric with Fabric API. The 26.1 and 1.21.1 lines continue as
+  `1.0.0+26.1` and `1.0.0+1.21.1` on their own branches.
+
 ## 1.0.0+26.1 - 2026-07-08
 
 The Minecraft 26.1 port of the 1.0.0 release. The public API is unchanged; every 1.0.0 feature renders on
