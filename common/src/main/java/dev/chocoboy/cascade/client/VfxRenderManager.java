@@ -1,9 +1,11 @@
 package dev.chocoboy.cascade.client;
 
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
 import org.slf4j.Logger;
@@ -78,17 +80,17 @@ public final class VfxRenderManager {
     // draw the visible effects for this frame. the loader supplies the frame's pose and camera, since it
     // reads those from its own render event
     public void render(PoseStack pose, Quaternionf camRot, Vec3 camPos) {
-        render(pose, camRot, camPos, true);
+        render(pose, camRot, camPos, Minecraft.getInstance().gameRenderer.mainRenderTarget(), true);
     }
 
     // the bloom capture pass re-renders the same frame into an offscreen target and must not refresh the
     // soft depth copy: copyFromMain rebinds the main target mid-pass, which would send the capture draw there
-    boolean render(PoseStack pose, Quaternionf camRot, Vec3 camPos, boolean refreshSoftDepth) {
+    boolean render(PoseStack pose, Quaternionf camRot, Vec3 camPos, RenderTarget target, boolean refreshSoftDepth) {
         if (active.isEmpty()) {
             return false;
         }
         VfxRenderQueue queue = new VfxRenderQueue();
-        VfxFrame frame = new VfxFrame(pose, camRot, camPos, queue);
+        VfxFrame frame = new VfxFrame(pose, camRot, camPos, target, queue);
 
         // cull beyond range, then draw nearest first so the per-frame budget keeps the closest effects
         List<RenderedEffect> visible = new ArrayList<>();
@@ -127,7 +129,7 @@ public final class VfxRenderManager {
                 logOnce("rendering an effect", e);
             }
         }
-        queue.play((owner, e) -> {
+        queue.play(target, (owner, e) -> {
             if (owner instanceof RenderedEffect effect) {
                 failed.add(effect);
             }

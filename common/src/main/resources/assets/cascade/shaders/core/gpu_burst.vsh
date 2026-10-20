@@ -1,15 +1,16 @@
 #version 330
+#extension GL_ARB_separate_shader_objects : require
 
-#moj_import <minecraft:projection.glsl>
+#include <minecraft:projection.glsl>
 
 // gpu-resident billboards, rebuilt for 26.1 without compute: each vertex carries its particle's spawn
 // state and re-integrates the force stack from spawn to the burst's current age, mirroring the cpu sim's
 // per-tick order exactly (modifiers touch velocity, then position integrates). every particle of a burst
 // ages together, so the whole march runs from uniforms and spawn attributes; nothing persists between
-// frames. six vertices per particle, the corner from gl_VertexID
+// frames. six vertices per particle, the corner from gl_VertexIndex
 
-in vec4 SpawnPos;   // xyz position in emitter space, w billboard roll
-in vec4 SpawnVel;   // xyz velocity per tick, w roll change per tick
+layout(location = 0) in vec4 SpawnPos;   // xyz position in emitter space, w billboard roll
+layout(location = 1) in vec4 SpawnVel;   // xyz velocity per tick, w roll change per tick
 
 layout(std140) uniform GpuBurstConfig {
     mat4 BurstModelView;
@@ -26,8 +27,8 @@ layout(std140) uniform GpuBurstConfig {
     vec4 UvCell[4];      // one atlas cell per flipbook frame
 };
 
-out vec4 vColor;
-out vec2 vUv;
+layout(location = 0) out vec4 vColor;
+layout(location = 1) out vec2 vUv;
 
 const vec2 CORNERS[6] = vec2[](
     vec2(-1.0, -1.0), vec2(-1.0, 1.0), vec2(1.0, 1.0),
@@ -70,7 +71,7 @@ vec3 colorAt(float t) {
 }
 
 void main() {
-    int corner = gl_VertexID % 6;
+    int corner = gl_VertexIndex % 6;
     float life = OffsetLife.w;
     int age = int(CamRightAge.w + 0.5);
 

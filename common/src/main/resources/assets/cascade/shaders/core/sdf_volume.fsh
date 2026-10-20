@@ -1,6 +1,7 @@
 #version 330
+#extension GL_ARB_separate_shader_objects : require
 
-#moj_import <minecraft:projection.glsl>
+#include <minecraft:projection.glsl>
 
 // sphere-traces the smooth union of the effect's shapes along the camera ray, shades the hit by its
 // rim factor through the multi-stop gradient, and writes the hit's real depth so world geometry
@@ -19,9 +20,9 @@ layout(std140) uniform SdfConfig {
     vec4 ColorStops[8];
 };
 
-in vec3 vRay;
+layout(location = 0) in vec3 vRay;
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
 // ordinals of the engine's Easings enum
 float easeAt(int kind, float t) {
@@ -139,7 +140,11 @@ void main() {
 
     vec4 clip = ProjMat * VolumeModelView * vec4(rd * t, 1.0);
     // window depth follows the backend's clip control: ndc z as is for zero to one, remapped for the classic
-    // range, told apart by ProjMat[2][2] like the soft particle stage
+    // range
     float ndcZ = clip.z / clip.w;
-    gl_FragDepth = abs(ProjMat[2][2]) > 1.0 ? ndcZ * 0.5 + 0.5 : ndcZ;
+#ifdef RENDERPEARL_DEPTH_IS_ZERO_TO_ONE
+    gl_FragDepth = ndcZ;
+#else
+    gl_FragDepth = ndcZ * 0.5 + 0.5;
+#endif
 }

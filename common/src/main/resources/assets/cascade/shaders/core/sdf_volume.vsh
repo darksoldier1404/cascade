@@ -1,9 +1,10 @@
 #version 330
+#extension GL_ARB_separate_shader_objects : require
 
-#moj_import <minecraft:projection.glsl>
+#include <minecraft:projection.glsl>
 
 // spans the volume's bounding quad on the camera plane and hands each vertex's camera-relative
-// position to the fragment shader, which marches rays through it. the corners come from gl_VertexID,
+// position to the fragment shader, which marches rays through it. the corners come from gl_VertexIndex,
 // so the draw binds no vertex buffer, like vanilla's screenquad
 
 layout(std140) uniform SdfConfig {
@@ -19,7 +20,7 @@ layout(std140) uniform SdfConfig {
     vec4 ColorStops[8];
 };
 
-out vec3 vRay;
+layout(location = 0) out vec3 vRay;
 
 const vec2 CORNERS[6] = vec2[](
     vec2(-1.0, -1.0), vec2(-1.0, 1.0), vec2(1.0, 1.0),
@@ -27,7 +28,7 @@ const vec2 CORNERS[6] = vec2[](
 );
 
 void main() {
-    vec2 corner = CORNERS[gl_VertexID];
+    vec2 corner = CORNERS[gl_VertexIndex];
     vec3 world = CenterBound.xyz + (CamRight.xyz * corner.x + CamUp.xyz * corner.y) * CenterBound.w;
     vRay = world;
     gl_Position = ProjMat * VolumeModelView * vec4(world, 1.0);

@@ -1,20 +1,24 @@
 package dev.chocoboy.cascade.client;
 
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexSorting;
+import com.mojang.renderpearl.api.commands.RenderPass;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalDouble;
 import net.minecraft.client.renderer.StagedVertexBuffer;
 import net.minecraft.client.renderer.rendertype.PreparedRenderType;
 import net.minecraft.client.renderer.rendertype.RenderType;
 
 // owns the staging buffer a frame's grouped work is built into, so every render type becomes one append and
-// one draw without touching vanilla's shared feature buffers. 26.2 removed the immediate draw: types are
-// prepared and their vertices staged first, one upload moves the whole frame to the gpu, then each type
-// draws from its slice. the buffer recycles its gpu allocations through a fence, so steady state never
-// reallocates
+// one draw without touching vanilla's shared feature buffers. types are prepared and their vertices staged
+// first, one upload moves the whole frame to the gpu, then every type draws from its slice inside a single
+// render pass on the frame's target. the buffer recycles its gpu allocations through a fence, so steady
+// state never reallocates
 final class CascadeBatcher {
 
     // fits a few thousand textured quads up front; the staging arena grows on its own if a frame needs more
@@ -29,7 +33,7 @@ final class CascadeBatcher {
     }
 
     static void draw(List<RenderType> order, Map<RenderType, List<VfxRenderQueue.Submission>> groups,
-            VfxRenderQueue.FailureSink failures) {
+            RenderTarget target, VfxRenderQueue.FailureSink failures) {
         if (order.isEmpty()) {
             return;
         }
@@ -42,10 +46,14 @@ final class CascadeBatcher {
                 stage(type, groups.get(type), failures, staged);
             }
             staging.upload();
-            for (Staged s : staged) {
-                StagedVertexBuffer.ExecuteInfo info = staging.getExecuteInfo(s.draw());
-                if (info != null) {
-                    s.type().drawFromBuffer(info);
+            try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(
+                    () -> "cascade vfx", target.getColorTextureView(), Optional.empty(),
+                    target.getDepthTextureView(), OptionalDouble.empty())) {
+                for (Staged s : staged) {
+                    StagedVertexBuffer.ExecuteInfo info = staging.getExecuteInfo(s.draw());
+                    if (info != null) {
+                        s.type().drawFromBuffer(info, pass);
+                    }
                 }
             }
         } finally {

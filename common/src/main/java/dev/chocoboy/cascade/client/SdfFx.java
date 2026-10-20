@@ -1,23 +1,21 @@
 package dev.chocoboy.cascade.client;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.pipeline.BindGroupLayout;
-import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.shaders.UniformType;
-import com.mojang.blaze3d.systems.CommandEncoder;
-import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.commands.CommandEncoder;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.pipeline.BindGroupLayout;
+import com.mojang.renderpearl.api.pipeline.BlendFunction;
+import com.mojang.renderpearl.api.pipeline.ColorTargetState;
+import com.mojang.renderpearl.api.pipeline.CompareOp;
+import com.mojang.renderpearl.api.pipeline.DepthStencilState;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.pipeline.UniformType;
 import java.nio.ByteBuffer;
-import java.util.OptionalDouble;
 import java.util.Optional;
-import net.minecraft.client.Minecraft;
+import java.util.OptionalDouble;
 import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
@@ -59,22 +57,18 @@ public final class SdfFx {
     }
 
     // draws one volume from its packed std140 config; throws to the caller's fail-soft on any gpu error
-    static void draw(ByteBuffer packed) {
+    static void draw(ByteBuffer packed, RenderTarget target) {
         CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
         if (config == null) {
             config = RenderSystem.getDevice().createBuffer(() -> "cascade sdf config",
                     GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, CONFIG_BYTES);
         }
         encoder.writeToBuffer(config.slice(), packed);
-        // honour the bloom capture's overrides like RenderType draws do, so volumes bloom too
-        RenderTarget main = Minecraft.getInstance().gameRenderer.mainRenderTarget();
-        GpuTextureView color = RenderSystem.outputColorTextureOverride != null
-                ? RenderSystem.outputColorTextureOverride : main.getColorTextureView();
-        GpuTextureView depth = RenderSystem.outputDepthTextureOverride != null
-                ? RenderSystem.outputDepthTextureOverride : main.getDepthTextureView();
+        // the frame's target is the main one or the bloom capture, so volumes bloom too
         try (RenderPass pass = encoder.createRenderPass(
-                () -> "cascade sdf volume", color, Optional.empty(), depth, OptionalDouble.empty())) {
-            pass.setPipeline(PIPELINE);
+                () -> "cascade sdf volume", target.getColorTextureView(), Optional.empty(),
+                target.getDepthTextureView(), OptionalDouble.empty())) {
+            pass.setPipeline(RenderSystem.getCompiledPipeline(PIPELINE));
             RenderSystem.bindDefaultUniforms(pass);
             pass.setUniform("SdfConfig", config);
             pass.draw(6, 1, 0, 0);

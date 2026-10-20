@@ -1,13 +1,14 @@
 package dev.chocoboy.cascade.client;
 
-import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.pipeline.BindGroupLayout;
-import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.renderpearl.api.pipeline.BindGroupLayout;
+import com.mojang.renderpearl.api.pipeline.BlendFunction;
+import com.mojang.renderpearl.api.pipeline.ColorTargetState;
+import com.mojang.renderpearl.api.pipeline.CompareOp;
+import com.mojang.renderpearl.api.pipeline.DepthStencilState;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.pipeline.UniformType;
 import java.util.List;
 import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.resources.Identifier;
@@ -45,7 +46,7 @@ public final class CorePipelines {
             Identifier.fromNamespaceAndPath("cascade", "core/position_tex_soft");
 
     // the scene depth copy the soft fragment stage reads
-    private static final BindGroupLayout DEPTH_SAMPLER = BindGroupLayout.builder().withSampler("DepthSampler").build();
+    private static final BindGroupLayout DEPTH_SAMPLER = BindGroupLayout.builder().withUniform("DepthSampler", UniformType.COMBINED_IMAGE_SAMPLER).build();
 
     private CorePipelines() {
     }
@@ -54,7 +55,8 @@ public final class CorePipelines {
     static RenderPipeline.Builder worldBuilder(String name) {
         return RenderPipeline.builder()
                 .withLocation(Identifier.fromNamespaceAndPath("cascade", name))
-                .withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION)
+                .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
+                .withBindGroupLayout(BindGroupLayouts.PROJECTION)
                 .withPrimitiveTopology(PrimitiveTopology.QUADS);
     }
 
@@ -143,22 +145,25 @@ public final class CorePipelines {
             .withCull(false)
             .build();
 
+    // the lit twin rides the particle vertex stage, whose outputs sit after the fog distances, so the fragment
+    // stage reads them from later locations under the LIT define
     static final RenderPipeline TEXTURED_ALPHA_LIT_SOFT = litBuilder("textured_alpha_lit_soft")
             .withFragmentShader(POSITION_TEX_SOFT)
+            .withShaderDefine("LIT")
             .withBindGroupLayout(DEPTH_SAMPLER)
             .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
             .build();
 
-    private static final List<RenderPipeline> ALL = List.of(
-            ADDITIVE, TEXTURED_ADDITIVE, TEXTURED_ALPHA, SOLID, SOLID_LIT,
-            TEXTURED_ADDITIVE_LIT, TEXTURED_ALPHA_LIT,
-            TEXTURED_ALPHA_SOFT, TEXTURED_ALPHA_LIT_SOFT,
-            ScreenVfxPipelines.ADDITIVE, ScreenVfxPipelines.ALPHA,
-            BloomBlit.PIPELINE, SdfFx.PIPELINE, GpuSim.PIPELINE);
-
     // the gpu device compiles pipelines lazily on first draw; a loader that can pre-register them for an
-    // upfront compile (neoforge's register event) feeds this list through
+    // upfront compile (neoforge's register event) feeds this list through. built on call rather than held in
+    // a static: the hud pipelines build on worldBuilder above, so a static list naming them would read them
+    // half-initialized whenever the hud class is the first one touched
     public static List<RenderPipeline> all() {
-        return ALL;
+        return List.of(
+                ADDITIVE, TEXTURED_ADDITIVE, TEXTURED_ALPHA, SOLID, SOLID_LIT,
+                TEXTURED_ADDITIVE_LIT, TEXTURED_ALPHA_LIT,
+                TEXTURED_ALPHA_SOFT, TEXTURED_ALPHA_LIT_SOFT,
+                ScreenVfxPipelines.ADDITIVE, ScreenVfxPipelines.ALPHA,
+                BloomBlit.PIPELINE, SdfFx.PIPELINE, GpuSim.PIPELINE);
     }
 }

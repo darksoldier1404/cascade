@@ -37,15 +37,15 @@ public final class CascadeFabricClient implements ClientModInitializer {
         });
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("cascade", "screen_vfx"),
                 (gui, tickCounter) -> ScreenVfxManager.get().render(gui));
-        LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN.register(context -> {
+        // the other level events fire inside the main render pass, where uploads, depth copies and passes of
+        // our own cannot run. END_MAIN fires once that pass has closed, with the view matrix still in place
+        LevelRenderEvents.END_MAIN.register(context -> {
             Camera camera = Minecraft.getInstance().gameRenderer.mainCamera();
             VfxRenderManager.get().render(context.poseStack(), camera.rotation(), camera.position());
-            // the bloom capture re-renders here, in the same stage, so the frame's matrices still match
+            // the bloom capture re-renders now and post fx runs after the effects so it captures them
             PostFx.captureVfx(context.poseStack(), camera.rotation(), camera.position());
+            PostFx.process(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false));
         });
-        // run post fx after the whole level, so it captures particles too
-        LevelRenderEvents.END_MAIN.register(context ->
-                PostFx.process(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false)));
     }
 
     private static void registerReceivers() {

@@ -95,10 +95,9 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
-    // the shader asset lint reads json+glsl as text, so it stays off the modding classpath
+    // the shader asset lint reads glsl as text, so it stays off the modding classpath
     shaderLintImplementation platform('org.junit:junit-bom:5.10.2')
     shaderLintImplementation 'org.junit.jupiter:junit-jupiter'
-    shaderLintImplementation 'com.google.code.gson:gson:2.10.1'
     shaderLintRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
@@ -122,7 +121,7 @@ tasks.named('sourcesJar') {
 }
 
 tasks.register('shaderLint', Test) {
-    description = 'Lints core shader assets against the ShaderInstance load contract.'
+    description = 'Lints core shader sources against the stage layout contract.'
     group = 'verification'
     testClassesDirs = sourceSets.shaderLint.output.classesDirs
     classpath = sourceSets.shaderLint.runtimeClasspath

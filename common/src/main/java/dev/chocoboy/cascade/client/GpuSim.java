@@ -1,23 +1,22 @@
 package dev.chocoboy.cascade.client;
 
-import com.mojang.blaze3d.GpuFormat;
-import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.pipeline.BindGroupLayout;
-import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.shaders.UniformType;
-import com.mojang.blaze3d.systems.CommandEncoder;
-import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.AddressMode;
-import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.commands.CommandEncoder;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.pipeline.BindGroupLayout;
+import com.mojang.renderpearl.api.pipeline.BlendFunction;
+import com.mojang.renderpearl.api.pipeline.ColorTargetState;
+import com.mojang.renderpearl.api.pipeline.CompareOp;
+import com.mojang.renderpearl.api.pipeline.DepthStencilState;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.pipeline.UniformType;
+import com.mojang.renderpearl.api.textures.AddressMode;
+import com.mojang.renderpearl.api.textures.FilterMode;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 import dev.chocoboy.cascade.engine.effect.AttractorSpec;
 import dev.chocoboy.cascade.engine.effect.BlendMode;
 import dev.chocoboy.cascade.engine.effect.ComponentSpec;
@@ -28,8 +27,8 @@ import dev.chocoboy.cascade.engine.effect.GravitySpec;
 import dev.chocoboy.cascade.engine.effect.MeshId;
 import dev.chocoboy.cascade.engine.effect.VortexSpec;
 import java.nio.ByteBuffer;
-import java.util.OptionalDouble;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.resources.Identifier;
@@ -62,7 +61,7 @@ public final class GpuSim {
 
     private static final BindGroupLayout CONFIG_LAYOUT = BindGroupLayout.builder()
             .withUniform("GpuBurstConfig", UniformType.UNIFORM_BUFFER)
-            .withSampler("Sampler0")
+            .withUniform("Sampler0", UniformType.COMBINED_IMAGE_SAMPLER)
             .build();
 
     public static final RenderPipeline PIPELINE = RenderPipeline.builder()
@@ -124,24 +123,20 @@ public final class GpuSim {
 
     // draws one burst from its spawn buffer and packed config; throws to the caller's fail-soft on any
     // gpu error. one shared config buffer serves every burst, the gl backend executes passes in order
-    static void draw(GpuBuffer spawns, ByteBuffer packed, int vertices) {
+    static void draw(GpuBuffer spawns, ByteBuffer packed, int vertices, RenderTarget target) {
         CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
         if (config == null) {
             config = RenderSystem.getDevice().createBuffer(() -> "cascade gpu burst config",
                     GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, CONFIG_BYTES);
         }
         encoder.writeToBuffer(config.slice(), packed);
-        RenderTarget main = Minecraft.getInstance().gameRenderer.mainRenderTarget();
-        GpuTextureView color = RenderSystem.outputColorTextureOverride != null
-                ? RenderSystem.outputColorTextureOverride : main.getColorTextureView();
-        GpuTextureView depth = RenderSystem.outputDepthTextureOverride != null
-                ? RenderSystem.outputDepthTextureOverride : main.getDepthTextureView();
         try (RenderPass pass = encoder.createRenderPass(
-                () -> "cascade gpu burst", color, Optional.empty(), depth, OptionalDouble.empty())) {
-            pass.setPipeline(PIPELINE);
+                () -> "cascade gpu burst", target.getColorTextureView(), Optional.empty(),
+                target.getDepthTextureView(), OptionalDouble.empty())) {
+            pass.setPipeline(RenderSystem.getCompiledPipeline(PIPELINE));
             RenderSystem.bindDefaultUniforms(pass);
             pass.setUniform("GpuBurstConfig", config);
-            pass.bindTexture("Sampler0",
+            pass.setUniform("Sampler0",
                     Minecraft.getInstance().getTextureManager()
                             .getTexture(ParticleAtlas.textureId()).getTextureView(),
                     RenderSystem.getSamplerCache().getSampler(

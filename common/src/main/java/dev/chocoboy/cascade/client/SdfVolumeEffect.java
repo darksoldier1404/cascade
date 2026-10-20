@@ -1,6 +1,7 @@
 package dev.chocoboy.cascade.client;
 
 import com.mojang.blaze3d.buffers.Std140Builder;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.chocoboy.cascade.engine.effect.SdfSpec;
 import java.util.List;
@@ -74,10 +75,11 @@ public final class SdfVolumeEffect implements RenderedEffect {
         Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).mul(frame.pose().last().pose());
         Vec3 cam = frame.cameraPos();
         Quaternionf camRot = frame.cameraRotation();
-        frame.queue().submitSelf(() -> draw(modelView, cam, camRot));
+        RenderTarget target = frame.target();
+        frame.queue().submitSelf(() -> draw(modelView, cam, camRot, target));
     }
 
-    private void draw(Matrix4f modelView, Vec3 cam, Quaternionf camRot) {
+    private void draw(Matrix4f modelView, Vec3 cam, Quaternionf camRot, RenderTarget target) {
         try {
             Vector3f right = camRot.transform(new Vector3f(1f, 0f, 0f));
             Vector3f up = camRot.transform(new Vector3f(0f, 1f, 0f));
@@ -108,7 +110,7 @@ public final class SdfVolumeEffect implements RenderedEffect {
                 for (int i = 0; i < SdfFx.MAX_COLOR_STOPS; i++) {
                     config.putVec4(colorStops[i * 3], colorStops[i * 3 + 1], colorStops[i * 3 + 2], 0f);
                 }
-                SdfFx.draw(config.get());
+                SdfFx.draw(config.get(), target);
             }
         } catch (RuntimeException e) {
             SdfFx.fail("drawing a volume", e);

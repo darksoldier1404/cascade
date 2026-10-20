@@ -1,12 +1,12 @@
 package dev.chocoboy.cascade.client;
 
-import com.mojang.blaze3d.GpuFormat;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.logging.LogUtils;
+import com.mojang.renderpearl.api.GpuFormat;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.PostChain;
@@ -59,14 +59,7 @@ public final class PostFx {
         RenderSystem.getDevice().createCommandEncoder().clearColorTexture(capture.getColorTexture(), new Vector4f());
         // scene depth so the capture pass depth-tests against the world
         capture.copyDepthFrom(main);
-        RenderSystem.outputColorTextureOverride = capture.getColorTextureView();
-        RenderSystem.outputDepthTextureOverride = capture.getDepthTextureView();
-        try {
-            captured = VfxRenderManager.get().render(pose, camRot, camPos, false);
-        } finally {
-            RenderSystem.outputColorTextureOverride = null;
-            RenderSystem.outputDepthTextureOverride = null;
-        }
+        captured = VfxRenderManager.get().render(pose, camRot, camPos, capture, false);
     }
 
     // blur the capture and add it over the frame, after the level is done rendering. a broken chain
@@ -97,8 +90,8 @@ public final class PostFx {
 
     private static void ensureCapture(RenderTarget main) {
         if (capture == null) {
-            capture = new TextureTarget("cascade-bloom-capture", main.width, main.height, true,
-                    GpuFormat.RGBA8_UNORM);
+            capture = new TextureTarget("cascade-bloom-capture", main.width, main.height,
+                    GpuFormat.RGBA8_UNORM, GpuFormat.D32_FLOAT);
         } else if (capture.width != main.width || capture.height != main.height) {
             capture.resize(main.width, main.height);
         }

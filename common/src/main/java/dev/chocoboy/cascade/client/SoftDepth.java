@@ -1,10 +1,10 @@
 package dev.chocoboy.cascade.client;
 
-import com.mojang.blaze3d.GpuFormat;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
-import com.mojang.blaze3d.textures.GpuTexture;
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import dev.chocoboy.cascade.CascadeCommon;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
@@ -48,7 +48,8 @@ public final class SoftDepth {
 
     private static void ensureTarget(int width, int height) {
         if (target == null) {
-            target = new TextureTarget("cascade-soft-depth", width, height, true, GpuFormat.RGBA8_UNORM);
+            target = new TextureTarget("cascade-soft-depth", width, height,
+                    GpuFormat.RGBA8_UNORM, GpuFormat.D32_FLOAT);
             Minecraft.getInstance().getTextureManager().register(TEXTURE_ID, new DepthTexture());
         } else if (target.width != width || target.height != height) {
             target.resize(width, height);

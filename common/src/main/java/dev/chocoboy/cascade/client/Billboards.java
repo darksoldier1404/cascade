@@ -20,7 +20,7 @@ final class Billboards {
             float x, float y, float z, float hx, float hy, float rotation, float[] uv, int r, int g, int b, int a) {
         pose.pushPose();
         pose.translate(x, y, z);
-        pose.mulPose(camRotation);
+        pose.rotate(camRotation);
         Matrix4f m = pose.last().pose();
         // rotate the corners in plane so we do not allocate a quaternion per particle
         float cs = (float) Math.cos(rotation);
@@ -38,7 +38,7 @@ final class Billboards {
             float x, float y, float z, float hx, float hy, float rotation, float[] uv, int r, int g, int b, int a, int light) {
         pose.pushPose();
         pose.translate(x, y, z);
-        pose.mulPose(camRotation);
+        pose.rotate(camRotation);
         Matrix4f m = pose.last().pose();
         float cs = (float) Math.cos(rotation);
         float sn = (float) Math.sin(rotation);

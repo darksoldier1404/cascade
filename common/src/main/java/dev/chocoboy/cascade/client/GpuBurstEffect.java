@@ -1,8 +1,9 @@
 package dev.chocoboy.cascade.client;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.Std140Builder;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
 import dev.chocoboy.cascade.engine.effect.AttractorSpec;
 import dev.chocoboy.cascade.engine.effect.BurstSampler;
 import dev.chocoboy.cascade.engine.effect.ComponentSpec;
@@ -120,10 +121,11 @@ public final class GpuBurstEffect implements RenderedEffect {
         Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrixCopy()).mul(frame.pose().last().pose());
         Vec3 cam = frame.cameraPos();
         Quaternionf camRot = frame.cameraRotation();
-        frame.queue().submitSelf(() -> draw(modelView, cam, camRot));
+        RenderTarget target = frame.target();
+        frame.queue().submitSelf(() -> draw(modelView, cam, camRot, target));
     }
 
-    private void draw(Matrix4f modelView, Vec3 cam, Quaternionf camRot) {
+    private void draw(Matrix4f modelView, Vec3 cam, Quaternionf camRot, RenderTarget target) {
         if (dead) {
             return;
         }
@@ -161,7 +163,7 @@ public final class GpuBurstEffect implements RenderedEffect {
                     config.putVec4(colorStops[i * 3], colorStops[i * 3 + 1], colorStops[i * 3 + 2], 0f);
                 }
                 putUvCells(config, frames);
-                GpuSim.draw(spawns, config.get(), count * VERTICES_PER_PARTICLE);
+                GpuSim.draw(spawns, config.get(), count * VERTICES_PER_PARTICLE, target);
             }
         } catch (RuntimeException e) {
             GpuSim.fail("drawing a gpu effect", e);

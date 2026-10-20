@@ -194,7 +194,7 @@ public final class ParticleBurstEffect implements RenderedEffect {
                 pose.pushPose();
                 try {
                     pose.translate(wx, wy, wz);
-                    pose.mulPose(rot.rotationYXZ(p.yaw, p.pitch, p.rotation));
+                    pose.rotate(rot.rotationYXZ(p.yaw, p.pitch, p.rotation));
                     pose.scale(s, s, s);
                     pose.translate(-0.5f, -0.5f, -0.5f);   // center the 0..1 block model on the particle
                     PoseStack.Pose last = pose.last();
@@ -246,7 +246,7 @@ public final class ParticleBurstEffect implements RenderedEffect {
             pose.pushPose();
             try {
                 pose.translate(wx, wy, wz);
-                pose.mulPose(rot.rotationYXZ(p.yaw, p.pitch, p.rotation));
+                pose.rotate(rot.rotationYXZ(p.yaw, p.pitch, p.rotation));
                 pose.scale(s, s, s);
                 for (ItemMeshCache.Layer layer : layers) {
                     pose.pushPose();

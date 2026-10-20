@@ -1,5 +1,6 @@
 package dev.chocoboy.cascade.client;
 
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -53,11 +54,11 @@ public final class VfxRenderQueue {
         self.add(new SelfSubmission(owner, draw));
     }
 
-    void play(FailureSink failures) {
+    void play(RenderTarget target, FailureSink failures) {
         // the sort is stable, so types in the same tier keep first-submission order
         List<RenderType> order = new ArrayList<>(groups.keySet());
         order.sort(Comparator.comparingInt(VfxRenderQueue::tier));
-        CascadeBatcher.draw(order, groups, failures);
+        CascadeBatcher.draw(order, groups, target, failures);
         for (SelfSubmission s : self) {
             try {
                 s.draw().run();

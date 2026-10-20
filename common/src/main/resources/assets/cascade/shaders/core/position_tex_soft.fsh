@@ -1,7 +1,8 @@
 #version 330
+#extension GL_ARB_separate_shader_objects : require
 
-#moj_import <minecraft:dynamictransforms.glsl>
-#moj_import <minecraft:projection.glsl>
+#include <minecraft:dynamictransforms.glsl>
+#include <minecraft:projection.glsl>
 
 // the soft particle fragment stage, carried over from the pre-26.1 cascade_soft shaders: the quad fades
 // out where it approaches scene geometry, read from a depth copy of the main target, so smoke has no hard
@@ -11,19 +12,28 @@
 uniform sampler2D Sampler0;
 uniform sampler2D DepthSampler;
 
-in vec2 texCoord0;
-in vec4 vertexColor;
+#ifdef LIT
+layout(location = 2) in vec2 texCoord0;
+layout(location = 3) in vec4 vertexColor;
+#else
+layout(location = 0) in vec2 texCoord0;
+layout(location = 1) in vec4 vertexColor;
+#endif
 
-out vec4 fragColor;
+
+layout(location = 0) out vec4 fragColor;
 
 const float FADE_DISTANCE = 1.5;
 
 // turn a non linear depth buffer value into a positive view space distance using the projection matrix.
-// the depth range depends on the backend's clip control: a zero to one range stores ndc z as is, the classic
-// minus one to one range remaps it. the two matrices are told apart by ProjMat[2][2], which stays below one
-// in magnitude for zero to one and above one for the classic range, at any sane near and far
+// the depth range depends on the backend's clip control: zero to one stores ndc z as is, the classic minus
+// one to one range remaps it
 float linearize(float depth) {
-    float ndc = abs(ProjMat[2][2]) > 1.0 ? depth * 2.0 - 1.0 : depth;
+#ifdef RENDERPEARL_DEPTH_IS_ZERO_TO_ONE
+    float ndc = depth;
+#else
+    float ndc = depth * 2.0 - 1.0;
+#endif
     return ProjMat[3][2] / (ProjMat[2][2] + ndc);
 }
 

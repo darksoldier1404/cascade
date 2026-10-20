@@ -19,8 +19,9 @@ import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.QuadParticleRenderState;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.texture.UvMapping;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
+import net.minecraft.client.resources.model.geometry.ItemQuads;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -84,9 +85,9 @@ final class ItemMeshCache {
 
         @Override
         public void submitItem(PoseStack pose, ItemDisplayContext context, int light, int overlay,
-                int outlineColor, int[] tints, List<BakedQuad> quads,
+                int outlineColor, int[] tints, ItemQuads quads,
                 ItemStackRenderState.FoilType foil) {
-            layers.add(new Layer(new Matrix4f(pose.last().pose()), List.copyOf(quads), tints.clone()));
+            layers.add(new Layer(new Matrix4f(pose.last().pose()), quads.all(), tints.clone()));
         }
 
         @Override
@@ -96,6 +97,11 @@ final class ItemMeshCache {
         @Override
         public void submitNameTag(PoseStack pose, Vec3 attachment, int offset, Component name,
                 boolean seeThrough, int light, CameraRenderState camera) {
+        }
+
+        @Override
+        public void submitTextBackground(PoseStack pose, float x0, float y0, float x1, float y1, int color,
+                Font.DisplayMode mode, int light) {
         }
 
         @Override
@@ -113,8 +119,12 @@ final class ItemMeshCache {
 
         @Override
         public <S> void submitModel(Model<? super S> model, S state, PoseStack pose, RenderType type,
-                int light, int overlay, int color, TextureAtlasSprite sprite, int outlineColor,
-                ModelFeatureRenderer.CrumblingOverlay crumbling) {
+                int light, int overlay, int color, UvMapping uvMapping, int outlineColor) {
+        }
+
+        @Override
+        public <S> void submitCrumblingOverlay(Model<? super S> model, S state, PoseStack pose, RenderType type,
+                int light, int overlay, int color, ModelFeatureRenderer.CrumblingOverlay crumbling) {
         }
 
         @Override
@@ -127,7 +137,8 @@ final class ItemMeshCache {
         }
 
         @Override
-        public void submitBreakingBlockModel(PoseStack pose, List<BlockStateModelPart> parts, int progress) {
+        public void submitBreakingBlockModel(PoseStack pose, List<BlockStateModelPart> parts, int progress,
+                boolean translucent) {
         }
 
         @Override
