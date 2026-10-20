@@ -27,6 +27,7 @@ body:
     attributes:
       label: Minecraft version
       options:
+        - "26.3"
         - "26.2"
         - "26.1"
         - "1.21.1"
@@ -36,7 +37,7 @@ body:
     attributes:
       label: Cascade version
       description: "The artifact version you depend on."
-      placeholder: "e.g. 1.0.0+26.2"
+      placeholder: "e.g. 1.0.0+26.3"
     validations:
       required: true
   - type: input

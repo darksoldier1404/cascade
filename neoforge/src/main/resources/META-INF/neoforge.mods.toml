@@ -13,7 +13,7 @@ description="A visual effects and sequencing library for NeoForge."
 [[dependencies.cascade]]
 modId="neoforge"
 type="required"
-versionRange="[26.2,)"
+versionRange="[26.3,)"
 ordering="NONE"
 side="BOTH"
 
