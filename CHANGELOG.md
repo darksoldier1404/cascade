@@ -3,6 +3,28 @@
 Notable changes to Cascade, newest first. Versions follow [semver](https://semver.org): the public API is
 stable across 1.x, and a breaking change would come with a 2.0.
 
+## 1.0.0+26.3 - 2026-10-20
+
+The Minecraft 26.3 port of the 1.0.0 release. The public API is unchanged.
+
+### Changed
+
+- Rendering moved onto 26.3's split render api (`com.mojang.renderpearl`), where draws take the render pass they
+  run in, samplers are declared as uniforms, and the output texture overrides are gone.
+- Effects now draw once the level's main pass has closed, since the earlier level stages run inside a pass that
+  cannot take uploads, depth copies, or passes of its own. The bloom capture draws straight into its own target.
+- The core shaders follow 26.3's glsl rules: `#include`, explicit stage locations, and the clip-control depth
+  range read from the engine's own macro.
+
+### Fixed
+
+- Hud particles no longer crash the client on Fabric when they are the first effect drawn.
+
+### Requirements
+
+- Minecraft 26.3, Java 25, NeoForge or Fabric with Fabric API. Earlier lines continue as `1.0.0+26.2`,
+  `1.0.0+26.1` and `1.0.0+1.21.1` on their own branches.
+
 ## 1.0.0+26.2 - 2026-10-20
 
 The Minecraft 26.2 port of the 1.0.0 release. The public API is unchanged.
